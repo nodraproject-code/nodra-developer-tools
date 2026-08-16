@@ -1,0 +1,50 @@
+name: Human Check CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'extensions/human-check/**'
+      - '.github/workflows/human-check-ci.yml'
+  pull_request:
+    paths:
+      - 'extensions/human-check/**'
+      - '.github/workflows/human-check-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build-test-package:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: extensions/human-check
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: extensions/human-check/package-lock.json
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Compile and test
+        run: npm run check
+
+      - name: Package VSIX
+        run: npm run package
+
+      - name: Upload VSIX artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nodra-human-check-0.1.0-vsix
+          path: extensions/human-check/*.vsix
+          if-no-files-found: error
+          retention-days: 14
