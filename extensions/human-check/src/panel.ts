@@ -3,7 +3,7 @@ import { ChangeSummary, ChangedFile } from './changeAnalysis';
 import {
   assessAttention,
   buildDecisionRecordMarkdown,
-  evaluateHumanSignal,
+  buildUnderstandingFeedback,
   HumanSignalRecord,
   recommendCheck,
   UnderstandingChecklist
@@ -67,7 +67,7 @@ export function openHumanSignalPanel(context: vscode.ExtensionContext, summary: 
         understandsWhyNeeded: rawChecklist.understandsWhyNeeded === true,
         understandsImpact: rawChecklist.understandsImpact === true
       };
-      const result = evaluateHumanSignal(explanation, checklist);
+      const feedback = buildUnderstandingFeedback(summary, explanation, checklist);
       const record: HumanSignalRecord = {
         timestamp: new Date().toISOString(),
         workspace: workspaceName,
@@ -79,14 +79,16 @@ export function openHumanSignalPanel(context: vscode.ExtensionContext, summary: 
         recommendedCheck: recommendCheck(summary),
         explanation: explanation.trim(),
         checklist,
-        result
+        result: feedback.result,
+        understandingGaps: feedback.gaps,
+        understandingEvidence: feedback.evidence
       };
 
       latestRecord = record;
       const history = context.globalState.get<HumanSignalRecord[]>(HISTORY_KEY, []);
       await context.globalState.update(HISTORY_KEY, [record, ...history].slice(0, 100));
-      await panel.webview.postMessage({ type: 'saved', result });
-      void vscode.window.showInformationMessage(`NODRA Human Check: ${result}`);
+      await panel.webview.postMessage({ type: 'saved', feedback });
+      void vscode.window.showInformationMessage(`NODRA Human Check: ${feedback.result}`);
       return;
     }
 
@@ -136,7 +138,7 @@ function render(summary: ChangeSummary, scriptNonce: string): string {
   .guidance { display:flex; gap:10px; flex-wrap:wrap; margin:14px 0; }
   .guidance div,.summary div { border:1px solid var(--vscode-panel-border); padding:10px 12px; min-width:120px; }
   .summary { display:flex; gap:12px; flex-wrap:wrap; }
-  .overflow { margin: 14px 0; padding: 10px 12px; border: 1px solid var(--vscode-panel-border); background: var(--vscode-editorWidget-background); color: var(--vscode-descriptionForeground); }
+  .overflow,.feedback { margin: 14px 0; padding: 10px 12px; border: 1px solid var(--vscode-panel-border); background: var(--vscode-editorWidget-background); }
   .nonblocking { color: var(--vscode-descriptionForeground); font-size: 12px; margin-top: 8px; }
   ul { padding-left: 20px; } li { margin: 8px 0 12px; }
   code { overflow-wrap:anywhere; }
@@ -146,6 +148,9 @@ function render(summary: ChangeSummary, scriptNonce: string): string {
   button { margin:18px 8px 0 0; padding:8px 14px; color:var(--vscode-button-foreground); background:var(--vscode-button-background); border:0; cursor:pointer; }
   button.secondary { color:var(--vscode-button-secondaryForeground); background:var(--vscode-button-secondaryBackground); display:none; }
   #result { margin-top:18px; font-weight:600; }
+  #feedback { display:none; }
+  #feedback h3 { margin: 8px 0; font-size:14px; }
+  #feedback ul { margin-top:4px; }
 </style>
 </head>
 <body>
@@ -176,9 +181,11 @@ function render(summary: ChangeSummary, scriptNonce: string): string {
   <button id="save">Record Human Signal locally</button>
   <button id="export" class="secondary">Export Decision Record (.md)</button>
   <div id="result" role="status"></div>
+  <div id="feedback" class="feedback" role="status"></div>
 <script nonce="${scriptNonce}">
   const vscode = acquireVsCodeApi();
   const ids = ['canDescribeChange','knowsArchitectureImpact','checkedSensitiveAreas','understandsWhyNeeded','understandsImpact'];
+  const escape = (value) => String(value).replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
   document.getElementById('save').addEventListener('click', () => {
     const checklist = Object.fromEntries(ids.map(id => [id, document.getElementById(id).checked]));
     vscode.postMessage({ type: 'save', explanation: document.getElementById('explanation').value, checklist });
@@ -188,8 +195,20 @@ function render(summary: ChangeSummary, scriptNonce: string): string {
   });
   window.addEventListener('message', event => {
     if (event.data?.type === 'saved') {
-      document.getElementById('result').textContent = 'Human Signal: ' + event.data.result + ' · stored locally';
+      const feedback = event.data.feedback;
+      document.getElementById('result').textContent = 'Human Signal: ' + feedback.result + ' · stored locally';
       document.getElementById('export').style.display = 'inline-block';
+      const box = document.getElementById('feedback');
+      const gaps = Array.isArray(feedback.gaps) ? feedback.gaps : [];
+      const evidence = Array.isArray(feedback.evidence) ? feedback.evidence : [];
+      const gapHtml = gaps.length
+        ? '<h3>Understanding gaps</h3><ul>' + gaps.map(item => '<li>' + escape(item) + '</li>').join('') + '</ul>'
+        : '<h3>Understanding gaps</h3><p>No unresolved gaps were identified from this local check.</p>';
+      const evidenceHtml = evidence.length
+        ? '<h3>What supports this result</h3><ul>' + evidence.map(item => '<li>' + escape(item) + '</li>').join('') + '</ul>'
+        : '';
+      box.innerHTML = gapHtml + evidenceHtml;
+      box.style.display = 'block';
     }
   });
 </script>
