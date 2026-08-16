@@ -38,9 +38,9 @@
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
-    "check": "npm run compile && npm test",
-    "test": "npm run compile && node --test out/test/*.test.js",
-    "package": "vsce package"
+    "check": "npm run compile && node --test out/test/*.test.js",
+    "test": "node --test out/test/*.test.js",
+    "package": "npx @vscode/vsce package"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",

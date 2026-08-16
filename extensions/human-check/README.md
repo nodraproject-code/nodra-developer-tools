@@ -59,14 +59,19 @@ npm install
 npm run check
 ```
 
-To build a VSIX locally:
+## Package a local VSIX
+
+Use the official Visual Studio Code extension packaging tool:
 
 ```bash
-npm run compile
-npx vsce package
+npm install
+npm run check
+npx @vscode/vsce package
 ```
 
-The Marketplace publisher identifier in `package.json` is currently `nodra-network`. Before publishing, the NODRA Network publisher must exist in Visual Studio Marketplace under that exact identifier, or `publisher` must be adjusted to the identifier actually created.
+This produces `nodra-human-check-0.1.0.vsix` in this directory. Install that VSIX in Visual Studio Code and validate the command, status-bar entry, local Git summary, Human Signal flow, and local-only privacy behavior before publishing.
+
+The Visual Studio Marketplace publisher **NODRA Network** is registered with the publisher identifier `nodra-network`, matching the `publisher` field in `package.json`.
 
 ## Independence
 
