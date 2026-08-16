@@ -109,7 +109,7 @@ test('understanding feedback explains missing confirmations and overlooked detec
   assert.ok(feedback.evidence.some((item) => item.includes('developer-authored explanation')));
 });
 
-test('Decision Record is local evidence without source code or diffs', () => {
+test('Decision Record uses additional context for understood decisions and carries NODRA signature', () => {
   const markdown = buildDecisionRecordMarkdown({
     timestamp: '2026-08-16T18:00:00.000Z',
     workspace: 'sample-workspace',
@@ -138,7 +138,9 @@ test('Decision Record is local evidence without source code or diffs', () => {
   assert.match(markdown, /Recommended check:\*\* DEEP/);
   assert.match(markdown, /Review focus confirmations/);
   assert.match(markdown, /Reviewed authentication impact/);
-  assert.match(markdown, /Understanding gaps/);
+  assert.match(markdown, /Additional context/);
   assert.match(markdown, /Supporting confirmations/);
-  assert.match(markdown, /No source code or diff is included/);
+  assert.match(markdown, /without including source code or diffs/);
+  assert.match(markdown, /NODRA Network/);
+  assert.match(markdown, /NODRA Protocol principles/);
 });
