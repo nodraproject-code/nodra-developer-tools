@@ -3,10 +3,10 @@ import { ChangeSummary, ChangedFile } from './changeAnalysis';
 import { evaluateHumanSignal, HumanSignalRecord, UnderstandingChecklist } from './humanSignal';
 
 const HISTORY_KEY = 'nodra.humanCheck.history.v0.1';
-const MAX_VISIBLE_FILES = 30;
+const MAX_VISIBLE_FILES = 10;
 
 function escapeHtml(value: string): string {
-  return value.replace(/[&<>'"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[char] ?? char);
+  return value.replace(/[&<>'\"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '\"': '&quot;' })[char] ?? char);
 }
 
 function nonce(): string {
@@ -27,6 +27,19 @@ function selectFilesForDisplay(files: ChangedFile[]): ChangedFile[] {
       return a.path.localeCompare(b.path);
     })
     .slice(0, MAX_VISIBLE_FILES);
+}
+
+function renderAreaSummary(summary: ChangeSummary): string {
+  if (!summary.areas.length) {
+    return '<span class="muted">No sensitive area detected by path rules.</span>';
+  }
+
+  return summary.areas
+    .map((area) => {
+      const count = summary.files.filter((file) => file.areas.includes(area)).length;
+      return `<span class="area-pill"><strong>${escapeHtml(area)}</strong> ${count}</span>`;
+    })
+    .join('');
 }
 
 export function openHumanSignalPanel(context: vscode.ExtensionContext, summary: ChangeSummary, workspaceName: string): void {
@@ -76,14 +89,13 @@ export function openHumanSignalPanel(context: vscode.ExtensionContext, summary: 
 }
 
 function render(summary: ChangeSummary, scriptNonce: string): string {
-  const areaText = summary.areas.length ? summary.areas.join(', ') : 'No sensitive area detected by path rules';
   const visibleFiles = selectFilesForDisplay(summary.files);
   const hiddenCount = Math.max(0, summary.files.length - visibleFiles.length);
   const files = visibleFiles
     .map((file) => `<li><code>${escapeHtml(file.path)}</code> <span class="muted">${file.untracked ? 'untracked' : `+${file.added} / -${file.removed}`}</span>${file.areas.length ? `<div class="tags">${file.areas.map((area) => `<span>${escapeHtml(area)}</span>`).join('')}</div>` : ''}</li>`)
     .join('');
   const overflowNotice = hiddenCount > 0
-    ? `<div class="overflow"><strong>Focused view:</strong> showing the ${visibleFiles.length} most relevant changed files. ${hiddenCount} additional changed files are included in the totals above but hidden here to keep the Human Check readable.</div>`
+    ? `<div class="overflow"><strong>${hiddenCount} additional changed files hidden.</strong><br><span>They remain included in the totals above. Only the ${visibleFiles.length} highest-priority files are shown here.</span></div>`
     : '';
 
   return `<!doctype html>
@@ -99,7 +111,9 @@ function render(summary: ChangeSummary, scriptNonce: string): string {
   .tagline,.muted { color: var(--vscode-descriptionForeground); }
   .privacy { border-left: 3px solid var(--vscode-textLink-foreground); padding: 10px 12px; background: var(--vscode-textBlockQuote-background); margin: 18px 0; }
   .summary { display:flex; gap:12px; flex-wrap:wrap; } .summary div { border:1px solid var(--vscode-panel-border); padding:10px 12px; min-width:120px; }
-  .overflow { margin: 14px 0; padding: 10px 12px; border: 1px solid var(--vscode-panel-border); background: var(--vscode-editorWidget-background); color: var(--vscode-descriptionForeground); }
+  .area-summary { display:flex; gap:8px; flex-wrap:wrap; margin:12px 0 4px; }
+  .area-pill { border:1px solid var(--vscode-panel-border); border-radius:14px; padding:4px 9px; font-size:12px; }
+  .overflow { margin: 14px 0; padding: 10px 12px; border-left: 3px solid var(--vscode-textLink-foreground); background: var(--vscode-textBlockQuote-background); }
   ul { padding-left: 20px; } li { margin: 8px 0 12px; }
   code { overflow-wrap:anywhere; }
   .tags span { display:inline-block; margin:5px 5px 0 0; padding:2px 7px; border:1px solid var(--vscode-panel-border); border-radius:10px; font-size:11px; }
@@ -114,8 +128,9 @@ function render(summary: ChangeSummary, scriptNonce: string): string {
   <div class="privacy"><strong>Local-only V0.1:</strong> source code stays local · no telemetry · no account · no NODRA backend connection.</div>
   <h2>What changed locally?</h2>
   <div class="summary"><div><strong>${summary.files.length}</strong><br>files</div><div><strong>+${summary.added}</strong><br>lines added</div><div><strong>-${summary.removed}</strong><br>lines removed</div></div>
-  <p><strong>Sensitive areas:</strong> ${escapeHtml(areaText)}</p>
+  <div class="area-summary">${renderAreaSummary(summary)}</div>
   ${overflowNotice}
+  <h2>Priority files</h2>
   <ul>${files || '<li>No tracked or untracked changes detected.</li>'}</ul>
   <h2>What do you understand?</h2>
   <p>Explain in your own words what changed and why it is needed.</p>
