@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { detectSensitiveAreas, parseNumstat, parseUntracked, summarizeChanges } from '../src/changeAnalysis';
-import { assessAttention, buildDecisionRecordMarkdown, evaluateHumanSignal, recommendCheck } from '../src/humanSignal';
+import { assessAttention, buildDecisionRecordMarkdown, buildUnderstandingFeedback, evaluateHumanSignal, recommendCheck } from '../src/humanSignal';
 
 test('detects sensitive areas from paths without reading file content', () => {
   assert.deepEqual(detectSensitiveAreas('src/api/auth/session.ts'), ['API', 'authentication']);
@@ -51,6 +51,26 @@ test('adaptive guidance stays quick for routine changes and deep for high-impact
   assert.equal(recommendCheck(highImpact), 'DEEP');
 });
 
+test('understanding feedback explains missing confirmations and overlooked detected areas', () => {
+  const summary = summarizeChanges(parseNumstat('20\t10\tsrc/api/users.ts\n12\t5\tsrc/data/users.ts\n6000\t0\tinfra/terraform/main.tf\n'));
+  const feedback = buildUnderstandingFeedback(
+    summary,
+    'I reviewed the API change and understand why the endpoint contract was updated for callers.',
+    {
+      canDescribeChange: true,
+      knowsArchitectureImpact: false,
+      checkedSensitiveAreas: false,
+      understandsWhyNeeded: true,
+      understandsImpact: false
+    }
+  );
+
+  assert.equal(feedback.result, 'NEEDS_REVIEW');
+  assert.ok(feedback.gaps.some((gap) => gap.includes('Architecture impact')));
+  assert.ok(feedback.gaps.some((gap) => gap.includes('data') || gap.includes('infrastructure')));
+  assert.ok(feedback.evidence.some((item) => item.includes('developer-authored explanation')));
+});
+
 test('Decision Record is local evidence without source code or diffs', () => {
   const markdown = buildDecisionRecordMarkdown({
     timestamp: '2026-08-16T18:00:00.000Z',
@@ -69,11 +89,15 @@ test('Decision Record is local evidence without source code or diffs', () => {
       understandsWhyNeeded: true,
       understandsImpact: true
     },
-    result: 'UNDERSTOOD'
+    result: 'UNDERSTOOD',
+    understandingGaps: [],
+    understandingEvidence: ['A developer-authored explanation was recorded.']
   });
 
   assert.match(markdown, /NODRA Decision Record/);
   assert.match(markdown, /Human Signal:\*\* UNDERSTOOD/);
   assert.match(markdown, /Recommended check:\*\* DEEP/);
+  assert.match(markdown, /Understanding gaps/);
+  assert.match(markdown, /Supporting confirmations/);
   assert.match(markdown, /No source code or diff is included/);
 });
