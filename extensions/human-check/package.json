@@ -1,0 +1,59 @@
+{
+  "name": "nodra-human-check",
+  "displayName": "NODRA Human Check",
+  "description": "Stay in the loop while AI codes with you. Understand local changes before accepting them.",
+  "version": "0.1.0",
+  "publisher": "nodra-network",
+  "license": "SEE LICENSE IN LICENSE",
+  "pricing": "Free",
+  "private": false,
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": ["Other"],
+  "keywords": [
+    "ai coding",
+    "human in the loop",
+    "git",
+    "code comprehension",
+    "developer tools",
+    "human signal",
+    "privacy",
+    "local first"
+  ],
+  "icon": "media/icon.png",
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onCommand:nodra.humanCheckWorkspace"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "nodra.humanCheckWorkspace",
+        "title": "Human Check Workspace",
+        "category": "NODRA"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "check": "npm run compile && npm test",
+    "test": "npm run compile && node --test out/test/*.test.js",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "@types/vscode": "^1.100.0",
+    "@vscode/vsce": "^3.6.0",
+    "typescript": "^5.8.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nodraproject-code/nodra-developer-tools.git"
+  },
+  "homepage": "https://github.com/nodraproject-code/nodra-developer-tools/tree/main/extensions/human-check",
+  "bugs": {
+    "url": "https://github.com/nodraproject-code/nodra-developer-tools/issues"
+  }
+}
