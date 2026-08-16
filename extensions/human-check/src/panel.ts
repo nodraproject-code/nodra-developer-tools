@@ -4,6 +4,7 @@ import {
   assessAttention,
   buildDecisionRecordMarkdown,
   buildUnderstandingFeedback,
+  getReviewFocusAreas,
   HumanSignalRecord,
   recommendCheck,
   UnderstandingChecklist
@@ -52,6 +53,7 @@ export function openHumanSignalPanel(context: vscode.ExtensionContext, summary: 
   const scriptNonce = nonce();
   panel.webview.html = render(summary, scriptNonce);
   let latestRecord: HumanSignalRecord | undefined;
+  const validFocusAreas = new Set(getReviewFocusAreas(summary));
 
   panel.webview.onDidReceiveMessage(async (message: unknown) => {
     if (!message || typeof message !== 'object') return;
@@ -67,7 +69,10 @@ export function openHumanSignalPanel(context: vscode.ExtensionContext, summary: 
         understandsWhyNeeded: rawChecklist.understandsWhyNeeded === true,
         understandsImpact: rawChecklist.understandsImpact === true
       };
-      const feedback = buildUnderstandingFeedback(summary, explanation, checklist);
+      const reviewedAreas = Array.isArray(value.reviewedAreas)
+        ? value.reviewedAreas.filter((area): area is string => typeof area === 'string' && validFocusAreas.has(area))
+        : [];
+      const feedback = buildUnderstandingFeedback(summary, explanation, checklist, reviewedAreas);
       const record: HumanSignalRecord = {
         timestamp: new Date().toISOString(),
         workspace: workspaceName,
@@ -79,6 +84,7 @@ export function openHumanSignalPanel(context: vscode.ExtensionContext, summary: 
         recommendedCheck: recommendCheck(summary),
         explanation: explanation.trim(),
         checklist,
+        reviewedAreas,
         result: feedback.result,
         understandingGaps: feedback.gaps,
         understandingEvidence: feedback.evidence
@@ -116,12 +122,16 @@ function render(summary: ChangeSummary, scriptNonce: string): string {
   const hiddenCount = Math.max(0, summary.files.length - visibleFiles.length);
   const attention = assessAttention(summary);
   const recommendedCheck = recommendCheck(summary);
+  const focusAreas = getReviewFocusAreas(summary);
   const files = visibleFiles
     .map((file) => `<li><code>${escapeHtml(file.path)}</code> <span class="muted">${file.untracked ? 'untracked' : `+${file.added} / -${file.removed}`}</span>${file.areas.length ? `<div class="tags">${file.areas.map((area) => `<span>${escapeHtml(area)}</span>`).join('')}</div>` : ''}</li>`)
     .join('');
   const overflowNotice = hiddenCount > 0
     ? `<div class="overflow"><strong>Focused view:</strong> ${hiddenCount} additional changed files are included in the totals but hidden here. NODRA is showing the ${visibleFiles.length} files that deserve attention first.</div>`
     : '';
+  const focusChecks = focusAreas.length
+    ? focusAreas.map((area, index) => `<label class="check focus-check"><input type="checkbox" class="area-review" id="areaReview${index}" data-area="${escapeHtml(area)}"> I reviewed the <strong>${escapeHtml(area)}</strong> impact for this change.</label>`).join('')
+    : '<p class="muted">No sensitive review-focus areas were detected from file paths.</p>';
 
   return `<!doctype html>
 <html lang="en">
@@ -132,19 +142,22 @@ function render(summary: ChangeSummary, scriptNonce: string): string {
 <title>+NODRA Human Signal</title>
 <style nonce="${scriptNonce}">
   body { font-family: var(--vscode-font-family); color: var(--vscode-foreground); padding: 22px; max-width: 880px; margin: 0 auto; }
-  h1 { font-size: 22px; margin-bottom: 4px; } h2 { margin-top: 24px; font-size: 16px; }
+  h1 { font-size: 22px; margin-bottom: 4px; } h2 { margin-top: 24px; font-size: 16px; } h3 { font-size:14px; }
   .tagline,.muted { color: var(--vscode-descriptionForeground); }
   .privacy { border-left: 3px solid var(--vscode-textLink-foreground); padding: 10px 12px; background: var(--vscode-textBlockQuote-background); margin: 18px 0; }
   .guidance { display:flex; gap:10px; flex-wrap:wrap; margin:14px 0; }
   .guidance div,.summary div { border:1px solid var(--vscode-panel-border); padding:10px 12px; min-width:120px; }
   .summary { display:flex; gap:12px; flex-wrap:wrap; }
-  .overflow,.feedback { margin: 14px 0; padding: 10px 12px; border: 1px solid var(--vscode-panel-border); background: var(--vscode-editorWidget-background); }
+  .overflow,.feedback,.review-focus { margin: 14px 0; padding: 10px 12px; border: 1px solid var(--vscode-panel-border); background: var(--vscode-editorWidget-background); }
+  .review-focus h3 { margin: 0 0 4px; }
+  .review-focus p { margin: 4px 0 10px; }
   .nonblocking { color: var(--vscode-descriptionForeground); font-size: 12px; margin-top: 8px; }
   ul { padding-left: 20px; } li { margin: 8px 0 12px; }
   code { overflow-wrap:anywhere; }
   .tags span { display:inline-block; margin:5px 5px 0 0; padding:2px 7px; border:1px solid var(--vscode-panel-border); border-radius:10px; font-size:11px; }
   textarea { box-sizing:border-box; width:100%; min-height:120px; padding:10px; color:var(--vscode-input-foreground); background:var(--vscode-input-background); border:1px solid var(--vscode-input-border); }
   label.check { display:block; margin:10px 0; }
+  .focus-check { padding: 3px 0; }
   button { margin:18px 8px 0 0; padding:8px 14px; color:var(--vscode-button-foreground); background:var(--vscode-button-background); border:0; cursor:pointer; }
   button.secondary { color:var(--vscode-button-secondaryForeground); background:var(--vscode-button-secondaryBackground); display:none; }
   #result { margin-top:18px; font-weight:600; }
@@ -173,6 +186,14 @@ function render(summary: ChangeSummary, scriptNonce: string): string {
   <h2>What do you understand?</h2>
   <p>Explain in your own words what changed and why it is needed. The goal is to help you keep control and preserve your decision context, not to slow you down.</p>
   <textarea id="explanation" placeholder="What changed? Why is it needed? What impact does it have?"></textarea>
+
+  <div class="review-focus">
+    <h3>Review focus for this change</h3>
+    <p class="muted">Generated from local Git file paths. Check only the areas you actually reviewed.</p>
+    ${focusChecks}
+  </div>
+
+  <h3>General understanding</h3>
   <label class="check"><input type="checkbox" id="canDescribeChange"> I can describe what changed.</label>
   <label class="check"><input type="checkbox" id="knowsArchitectureImpact"> I know which parts of the architecture were affected.</label>
   <label class="check"><input type="checkbox" id="checkedSensitiveAreas"> I checked whether authentication, APIs, data, dependencies, infrastructure, configuration, tests, or UI were affected.</label>
@@ -188,7 +209,8 @@ function render(summary: ChangeSummary, scriptNonce: string): string {
   const escape = (value) => String(value).replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
   document.getElementById('save').addEventListener('click', () => {
     const checklist = Object.fromEntries(ids.map(id => [id, document.getElementById(id).checked]));
-    vscode.postMessage({ type: 'save', explanation: document.getElementById('explanation').value, checklist });
+    const reviewedAreas = Array.from(document.querySelectorAll('.area-review:checked')).map(input => input.dataset.area).filter(Boolean);
+    vscode.postMessage({ type: 'save', explanation: document.getElementById('explanation').value, checklist, reviewedAreas });
   });
   document.getElementById('export').addEventListener('click', () => {
     vscode.postMessage({ type: 'exportDecisionRecord' });
