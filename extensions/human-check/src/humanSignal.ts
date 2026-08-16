@@ -130,14 +130,14 @@ export function buildUnderstandingFeedback(
     gaps.push(`Your explanation does not mention detected area${unmentionedAreas.length > 1 ? 's' : ''}: ${areas}. Consider whether ${unmentionedAreas.length > 1 ? 'they affect' : 'it affects'} your decision.`);
   }
 
+  if (reviewed.size > 0) evidence.push(`Review focus confirmed for: ${[...reviewed].join(', ')}.`);
   if (checklist.canDescribeChange) evidence.push('You confirmed that you can describe the change.');
   if (checklist.knowsArchitectureImpact) evidence.push('You confirmed the architecture impact.');
   if (checklist.checkedSensitiveAreas) evidence.push('You confirmed that sensitive areas were reviewed.');
   if (checklist.understandsWhyNeeded) evidence.push('You confirmed why the change is needed.');
   if (checklist.understandsImpact) evidence.push('You confirmed the impact before accepting the change.');
-  if (reviewed.size > 0) evidence.push(`Review focus confirmed for: ${[...reviewed].join(', ')}.`);
 
-  return { result, gaps: gaps.slice(0, 6), evidence: evidence.slice(0, 6) };
+  return { result, gaps: gaps.slice(0, 6), evidence: evidence.slice(0, 7) };
 }
 
 export function assessAttention(summary: ChangeSummary): AttentionLevel {
