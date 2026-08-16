@@ -144,7 +144,9 @@ function render(summary: ChangeSummary, scriptNonce: string): string {
   body { font-family: var(--vscode-font-family); color: var(--vscode-foreground); padding: 22px; max-width: 880px; margin: 0 auto; }
   h1 { font-size: 22px; margin-bottom: 4px; } h2 { margin-top: 24px; font-size: 16px; } h3 { font-size:14px; }
   .tagline,.muted { color: var(--vscode-descriptionForeground); }
-  .privacy { border-left: 3px solid var(--vscode-textLink-foreground); padding: 10px 12px; background: var(--vscode-textBlockQuote-background); margin: 18px 0; }
+  .privacy { border-left: 3px solid var(--vscode-textLink-foreground); padding: 10px 12px; background: var(--vscode-textBlockQuote-background); margin: 18px 0 10px; }
+  .purpose { margin: 10px 0 18px; padding: 12px 14px; border: 1px solid var(--vscode-panel-border); background: var(--vscode-editorWidget-background); line-height: 1.45; }
+  .purpose strong { display:block; margin-bottom:5px; }
   .guidance { display:flex; gap:10px; flex-wrap:wrap; margin:14px 0; }
   .guidance div,.summary div { border:1px solid var(--vscode-panel-border); padding:10px 12px; min-width:120px; }
   .summary { display:flex; gap:12px; flex-wrap:wrap; }
@@ -164,12 +166,17 @@ function render(summary: ChangeSummary, scriptNonce: string): string {
   #feedback { display:none; }
   #feedback h3 { margin: 8px 0; font-size:14px; }
   #feedback ul { margin-top:4px; }
+  footer { margin: 28px 0 4px; padding-top: 14px; border-top: 1px solid var(--vscode-panel-border); color: var(--vscode-descriptionForeground); font-size: 11px; text-align:center; }
 </style>
 </head>
 <body>
   <h1>+NODRA Human Signal</h1>
   <div class="tagline">Stay in the loop while AI codes with you.</div>
   <div class="privacy"><strong>Local-only V0.1:</strong> source code stays local · no telemetry · no account · no NODRA backend connection.</div>
+  <div class="purpose">
+    <strong>Why Human Check exists</strong>
+    AI can accelerate how software is built. Using it does not make a developer less valuable, and using it does not remove responsibility for what gets accepted. NODRA helps you understand what changed, notice what deserves attention, and preserve the reasoning behind your decision — without judging how the code was produced or slowing your workflow.
+  </div>
 
   <div class="guidance">
     <div><strong>${recommendedCheck}</strong><br>recommended check</div>
@@ -203,6 +210,8 @@ function render(summary: ChangeSummary, scriptNonce: string): string {
   <button id="export" class="secondary">Export Decision Record (.md)</button>
   <div id="result" role="status"></div>
   <div id="feedback" class="feedback" role="status"></div>
+
+  <footer>Built by NODRA Network · Human Signal for the AI era · Grounded in NODRA Protocol principles</footer>
 <script nonce="${scriptNonce}">
   const vscode = acquireVsCodeApi();
   const ids = ['canDescribeChange','knowsArchitectureImpact','checkedSensitiveAreas','understandsWhyNeeded','understandsImpact'];
@@ -223,9 +232,10 @@ function render(summary: ChangeSummary, scriptNonce: string): string {
       const box = document.getElementById('feedback');
       const gaps = Array.isArray(feedback.gaps) ? feedback.gaps : [];
       const evidence = Array.isArray(feedback.evidence) ? feedback.evidence : [];
+      const contextHeading = feedback.result === 'UNDERSTOOD' ? 'Points worth noting' : 'Understanding gaps';
       const gapHtml = gaps.length
-        ? '<h3>Understanding gaps</h3><ul>' + gaps.map(item => '<li>' + escape(item) + '</li>').join('') + '</ul>'
-        : '<h3>Understanding gaps</h3><p>No unresolved gaps were identified from this local check.</p>';
+        ? '<h3>' + contextHeading + '</h3><ul>' + gaps.map(item => '<li>' + escape(item) + '</li>').join('') + '</ul>'
+        : '<h3>' + (feedback.result === 'UNDERSTOOD' ? 'Additional context' : 'Understanding gaps') + '</h3><p>No unresolved points were identified from this local check.</p>';
       const evidenceHtml = evidence.length
         ? '<h3>What supports this result</h3><ul>' + evidence.map(item => '<li>' + escape(item) + '</li>').join('') + '</ul>'
         : '';
