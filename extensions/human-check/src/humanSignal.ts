@@ -29,6 +29,7 @@ export interface HumanSignalRecord {
   recommendedCheck: RecommendedCheck;
   explanation: string;
   checklist: UnderstandingChecklist;
+  reviewedAreas?: string[];
   result: HumanCheckResult;
   understandingGaps?: string[];
   understandingEvidence?: string[];
@@ -40,6 +41,17 @@ const CHECKLIST_GAPS: Array<[keyof UnderstandingChecklist, string]> = [
   ['checkedSensitiveAreas', 'Sensitive areas have not been confirmed as reviewed.'],
   ['understandsWhyNeeded', 'The reason this change is needed has not been confirmed.'],
   ['understandsImpact', 'Overall impact before accepting the change has not been confirmed.']
+];
+
+const AREA_PRIORITY = [
+  'authentication',
+  'data',
+  'API',
+  'infrastructure',
+  'dependencies',
+  'configuration',
+  'tests',
+  'UI'
 ];
 
 const AREA_TERMS: Record<string, string[]> = {
@@ -62,6 +74,16 @@ function explanationMentionsArea(explanation: string, area: string): boolean {
   return (AREA_TERMS[area] ?? [area.toLowerCase()]).some((term) => text.includes(term));
 }
 
+export function getReviewFocusAreas(summary: ChangeSummary): string[] {
+  return [...summary.areas]
+    .sort((a, b) => {
+      const aRank = AREA_PRIORITY.indexOf(a);
+      const bRank = AREA_PRIORITY.indexOf(b);
+      return (aRank === -1 ? AREA_PRIORITY.length : aRank) - (bRank === -1 ? AREA_PRIORITY.length : bRank);
+    })
+    .slice(0, 5);
+}
+
 export function evaluateHumanSignal(explanation: string, checklist: UnderstandingChecklist): HumanCheckResult {
   const normalized = explanation.trim();
   if (normalized.length < 30) return 'REVISIT';
@@ -74,12 +96,15 @@ export function evaluateHumanSignal(explanation: string, checklist: Understandin
 export function buildUnderstandingFeedback(
   summary: ChangeSummary,
   explanation: string,
-  checklist: UnderstandingChecklist
+  checklist: UnderstandingChecklist,
+  reviewedAreas: string[] = []
 ): UnderstandingFeedback {
-  const result = evaluateHumanSignal(explanation, checklist);
+  let result = evaluateHumanSignal(explanation, checklist);
   const gaps: string[] = [];
   const evidence: string[] = [];
   const normalized = explanation.trim();
+  const focusAreas = getReviewFocusAreas(summary);
+  const reviewed = new Set(reviewedAreas.filter((area) => focusAreas.includes(area)));
 
   if (normalized.length < 30) {
     gaps.push('Add a short explanation of what changed, why it was needed, and what impact you expect.');
@@ -89,6 +114,14 @@ export function buildUnderstandingFeedback(
 
   for (const [key, message] of CHECKLIST_GAPS) {
     if (!checklist[key]) gaps.push(message);
+  }
+
+  if (recommendCheck(summary) === 'DEEP') {
+    const unreviewedFocusAreas = focusAreas.filter((area) => !reviewed.has(area));
+    if (unreviewedFocusAreas.length > 0) {
+      gaps.push(`Review focus not confirmed for: ${unreviewedFocusAreas.join(', ')}.`);
+      if (result === 'UNDERSTOOD') result = 'NEEDS_REVIEW';
+    }
   }
 
   const unmentionedAreas = summary.areas.filter((area) => !explanationMentionsArea(normalized, area));
@@ -102,8 +135,9 @@ export function buildUnderstandingFeedback(
   if (checklist.checkedSensitiveAreas) evidence.push('You confirmed that sensitive areas were reviewed.');
   if (checklist.understandsWhyNeeded) evidence.push('You confirmed why the change is needed.');
   if (checklist.understandsImpact) evidence.push('You confirmed the impact before accepting the change.');
+  if (reviewed.size > 0) evidence.push(`Review focus confirmed for: ${[...reviewed].join(', ')}.`);
 
-  return { result, gaps: gaps.slice(0, 5), evidence: evidence.slice(0, 5) };
+  return { result, gaps: gaps.slice(0, 6), evidence: evidence.slice(0, 6) };
 }
 
 export function assessAttention(summary: ChangeSummary): AttentionLevel {
@@ -144,6 +178,9 @@ export function buildDecisionRecordMarkdown(record: HumanSignalRecord): string {
   const evidence = record.understandingEvidence?.length
     ? record.understandingEvidence.map((item) => `- ${item}`).join('\n')
     : '- No supporting confirmations recorded.';
+  const reviewedAreas = record.reviewedAreas?.length
+    ? record.reviewedAreas.map((area) => `- [x] Reviewed ${area} impact`).join('\n')
+    : '- No dynamic review-focus confirmations recorded.';
 
   return `# NODRA Decision Record\n\n` +
     `> Human-authored decision context. Generated locally by NODRA Human Check. No source code or diff is included.\n\n` +
@@ -156,6 +193,7 @@ export function buildDecisionRecordMarkdown(record: HumanSignalRecord): string {
     `- **Lines:** +${record.added} / -${record.removed}\n` +
     `- **Sensitive areas:** ${areas}\n\n` +
     `## Developer explanation\n\n${record.explanation || '_No explanation recorded._'}\n\n` +
+    `## Review focus confirmations\n\n${reviewedAreas}\n\n` +
     `## Understanding gaps\n\n${gaps}\n\n` +
     `## Supporting confirmations\n\n${evidence}\n\n` +
     `## Understanding checklist\n\n` +
