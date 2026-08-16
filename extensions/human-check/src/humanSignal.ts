@@ -172,18 +172,19 @@ export function buildDecisionRecordMarkdown(record: HumanSignalRecord): string {
     ['Can explain why the change is needed', record.checklist.understandsWhyNeeded],
     ['Understands impact before accepting', record.checklist.understandsImpact]
   ] as const;
-  const gaps = record.understandingGaps?.length
+  const context = record.understandingGaps?.length
     ? record.understandingGaps.map((gap) => `- ${gap}`).join('\n')
-    : '- No unresolved understanding gaps recorded.';
+    : '- No unresolved points were identified from this local check.';
   const evidence = record.understandingEvidence?.length
     ? record.understandingEvidence.map((item) => `- ${item}`).join('\n')
     : '- No supporting confirmations recorded.';
   const reviewedAreas = record.reviewedAreas?.length
     ? record.reviewedAreas.map((area) => `- [x] Reviewed ${area} impact`).join('\n')
     : '- No dynamic review-focus confirmations recorded.';
+  const contextHeading = record.result === 'UNDERSTOOD' ? 'Additional context' : 'Understanding gaps';
 
   return `# NODRA Decision Record\n\n` +
-    `> Human-authored decision context. Generated locally by NODRA Human Check. No source code or diff is included.\n\n` +
+    `> AI can accelerate how software is built. Human judgment still matters when changes are accepted. This record preserves the reasoning behind that decision without including source code or diffs.\n\n` +
     `- **Workspace:** ${record.workspace}\n` +
     `- **Timestamp:** ${record.timestamp}\n` +
     `- **Human Signal:** ${record.result}\n` +
@@ -194,9 +195,9 @@ export function buildDecisionRecordMarkdown(record: HumanSignalRecord): string {
     `- **Sensitive areas:** ${areas}\n\n` +
     `## Developer explanation\n\n${record.explanation || '_No explanation recorded._'}\n\n` +
     `## Review focus confirmations\n\n${reviewedAreas}\n\n` +
-    `## Understanding gaps\n\n${gaps}\n\n` +
+    `## ${contextHeading}\n\n${context}\n\n` +
     `## Supporting confirmations\n\n${evidence}\n\n` +
     `## Understanding checklist\n\n` +
     checklist.map(([label, value]) => `- [${value ? 'x' : ' '}] ${label}`).join('\n') +
-    `\n\n---\nGenerated locally by NODRA Human Check.\n`;
+    `\n\n---\nBuilt by NODRA Network · Human Signal for the AI era · Grounded in NODRA Protocol principles.\n`;
 }
