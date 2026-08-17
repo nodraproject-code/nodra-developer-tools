@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { ChangeSummary, ChangedFile } from './changeAnalysis';
+import { RepositoryIdentity } from './git';
 import {
   assessAttention,
   buildDecisionRecordMarkdown,
@@ -10,8 +11,10 @@ import {
   UnderstandingChecklist
 } from './humanSignal';
 
-const HISTORY_KEY = 'nodra.humanCheck.history.v0.1';
+const HISTORY_PREFIX = 'nodra.humanCheck.history.repo.v0.2.';
 const MAX_VISIBLE_FILES = 10;
+const MAX_HISTORY_RECORDS = 100;
+const MAX_HISTORY_VISIBLE = 25;
 
 function escapeHtml(value: string): string {
   return value.replace(/[&<>'"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[char] ?? char);
@@ -20,6 +23,10 @@ function escapeHtml(value: string): string {
 function nonce(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   return Array.from({ length: 32 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+}
+
+function historyKey(repository: RepositoryIdentity): string {
+  return `${HISTORY_PREFIX}${repository.key}`;
 }
 
 function selectFilesForDisplay(files: ChangedFile[]): ChangedFile[] {
@@ -42,7 +49,7 @@ function areaCounts(summary: ChangeSummary): string {
     .join(' · ');
 }
 
-export function openHumanSignalPanel(context: vscode.ExtensionContext, summary: ChangeSummary, workspaceName: string): void {
+export function openHumanSignalPanel(context: vscode.ExtensionContext, summary: ChangeSummary, repository: RepositoryIdentity): void {
   const panel = vscode.window.createWebviewPanel(
     'nodraHumanSignal',
     '+NODRA Human Signal',
@@ -51,9 +58,10 @@ export function openHumanSignalPanel(context: vscode.ExtensionContext, summary: 
   );
 
   const scriptNonce = nonce();
-  panel.webview.html = render(summary, scriptNonce);
+  panel.webview.html = render(summary, repository, scriptNonce);
   let latestRecord: HumanSignalRecord | undefined;
   const validFocusAreas = new Set(getReviewFocusAreas(summary));
+  const repositoryHistoryKey = historyKey(repository);
 
   panel.webview.onDidReceiveMessage(async (message: unknown) => {
     if (!message || typeof message !== 'object') return;
@@ -75,7 +83,7 @@ export function openHumanSignalPanel(context: vscode.ExtensionContext, summary: 
       const feedback = buildUnderstandingFeedback(summary, explanation, checklist, reviewedAreas);
       const record: HumanSignalRecord = {
         timestamp: new Date().toISOString(),
-        workspace: workspaceName,
+        workspace: repository.label,
         filesChanged: summary.files.length,
         added: summary.added,
         removed: summary.removed,
@@ -91,10 +99,20 @@ export function openHumanSignalPanel(context: vscode.ExtensionContext, summary: 
       };
 
       latestRecord = record;
-      const history = context.globalState.get<HumanSignalRecord[]>(HISTORY_KEY, []);
-      await context.globalState.update(HISTORY_KEY, [record, ...history].slice(0, 100));
+      const history = context.globalState.get<HumanSignalRecord[]>(repositoryHistoryKey, []);
+      await context.globalState.update(repositoryHistoryKey, [record, ...history].slice(0, MAX_HISTORY_RECORDS));
       await panel.webview.postMessage({ type: 'saved', feedback });
       void vscode.window.showInformationMessage(`NODRA Human Check: ${feedback.result}`);
+      return;
+    }
+
+    if (value.type === 'viewHistory') {
+      const history = context.globalState.get<HumanSignalRecord[]>(repositoryHistoryKey, []);
+      await panel.webview.postMessage({
+        type: 'history',
+        repository: repository.label,
+        records: history.slice(0, MAX_HISTORY_VISIBLE)
+      });
       return;
     }
 
@@ -117,7 +135,7 @@ export function openHumanSignalPanel(context: vscode.ExtensionContext, summary: 
   });
 }
 
-function render(summary: ChangeSummary, scriptNonce: string): string {
+function render(summary: ChangeSummary, repository: RepositoryIdentity, scriptNonce: string): string {
   const visibleFiles = selectFilesForDisplay(summary.files);
   const hiddenCount = Math.max(0, summary.files.length - visibleFiles.length);
   const attention = assessAttention(summary);
@@ -147,10 +165,11 @@ function render(summary: ChangeSummary, scriptNonce: string): string {
   .privacy { border-left: 3px solid var(--vscode-textLink-foreground); padding: 10px 12px; background: var(--vscode-textBlockQuote-background); margin: 18px 0 10px; }
   .purpose { margin: 10px 0 18px; padding: 12px 14px; border: 1px solid var(--vscode-panel-border); background: var(--vscode-editorWidget-background); line-height: 1.45; }
   .purpose strong { display:block; margin-bottom:5px; }
+  .repository-context { margin: 10px 0 18px; color: var(--vscode-descriptionForeground); font-size: 12px; }
   .guidance { display:flex; gap:10px; flex-wrap:wrap; margin:14px 0; }
   .guidance div,.summary div { border:1px solid var(--vscode-panel-border); padding:10px 12px; min-width:120px; }
   .summary { display:flex; gap:12px; flex-wrap:wrap; }
-  .overflow,.feedback,.review-focus { margin: 14px 0; padding: 10px 12px; border: 1px solid var(--vscode-panel-border); background: var(--vscode-editorWidget-background); }
+  .overflow,.feedback,.review-focus,.history { margin: 14px 0; padding: 10px 12px; border: 1px solid var(--vscode-panel-border); background: var(--vscode-editorWidget-background); }
   .review-focus h3 { margin: 0 0 4px; }
   .review-focus p { margin: 4px 0 10px; }
   .nonblocking { color: var(--vscode-descriptionForeground); font-size: 12px; margin-top: 8px; }
@@ -161,11 +180,16 @@ function render(summary: ChangeSummary, scriptNonce: string): string {
   label.check { display:block; margin:10px 0; }
   .focus-check { padding: 3px 0; }
   button { margin:18px 8px 0 0; padding:8px 14px; color:var(--vscode-button-foreground); background:var(--vscode-button-background); border:0; cursor:pointer; }
-  button.secondary { color:var(--vscode-button-secondaryForeground); background:var(--vscode-button-secondaryBackground); display:none; }
+  button.secondary { color:var(--vscode-button-secondaryForeground); background:var(--vscode-button-secondaryBackground); }
+  #export { display:none; }
   #result { margin-top:18px; font-weight:600; }
-  #feedback { display:none; }
-  #feedback h3 { margin: 8px 0; font-size:14px; }
+  #feedback,#history { display:none; }
+  #feedback h3,.history h3 { margin: 8px 0; font-size:14px; }
   #feedback ul { margin-top:4px; }
+  .history-card { border-top:1px solid var(--vscode-panel-border); padding:12px 0; }
+  .history-card:first-of-type { border-top:0; }
+  .history-meta { display:flex; gap:8px; flex-wrap:wrap; color:var(--vscode-descriptionForeground); font-size:11px; margin:4px 0 7px; }
+  .history-explanation { white-space:pre-wrap; line-height:1.4; }
   footer { margin: 32px 0 6px; padding-top: 16px; border-top: 1px solid var(--vscode-panel-border); color: var(--vscode-descriptionForeground); font-size: 12px; line-height: 1.45; text-align:center; }
   footer strong { color: var(--vscode-foreground); font-weight: 600; }
 </style>
@@ -178,6 +202,7 @@ function render(summary: ChangeSummary, scriptNonce: string): string {
     <strong>Why Human Check exists</strong>
     AI can accelerate how software is built. Using it does not make a developer less valuable, and using it does not remove responsibility for what gets accepted. NODRA helps you understand what changed, notice what deserves attention, and preserve the reasoning behind your decision — without judging how the code was produced or slowing your workflow.
   </div>
+  <div class="repository-context"><strong>Repository:</strong> ${escapeHtml(repository.label)} · Human Signal history is kept separate for this Git repository.</div>
 
   <div class="guidance">
     <div><strong>${recommendedCheck}</strong><br>recommended check</div>
@@ -209,8 +234,10 @@ function render(summary: ChangeSummary, scriptNonce: string): string {
   <label class="check"><input type="checkbox" id="understandsImpact"> I understand the impact before accepting the change.</label>
   <button id="save">Record Human Signal locally</button>
   <button id="export" class="secondary">Export Decision Record (.md)</button>
+  <button id="viewHistory" class="secondary">View history for this repository</button>
   <div id="result" role="status"></div>
   <div id="feedback" class="feedback" role="status"></div>
+  <div id="history" class="history" role="region" aria-label="Human Signal history"></div>
 
   <footer><strong>Built by NODRA Network</strong> · Human Signal for the AI Era · Guided by NODRA Protocol</footer>
 <script nonce="${scriptNonce}">
@@ -224,6 +251,9 @@ function render(summary: ChangeSummary, scriptNonce: string): string {
   });
   document.getElementById('export').addEventListener('click', () => {
     vscode.postMessage({ type: 'exportDecisionRecord' });
+  });
+  document.getElementById('viewHistory').addEventListener('click', () => {
+    vscode.postMessage({ type: 'viewHistory' });
   });
   window.addEventListener('message', event => {
     if (event.data?.type === 'saved') {
@@ -242,6 +272,31 @@ function render(summary: ChangeSummary, scriptNonce: string): string {
         : '';
       box.innerHTML = gapHtml + evidenceHtml;
       box.style.display = 'block';
+    }
+
+    if (event.data?.type === 'history') {
+      const records = Array.isArray(event.data.records) ? event.data.records : [];
+      const box = document.getElementById('history');
+      const repository = escape(event.data.repository || 'current repository');
+      if (!records.length) {
+        box.innerHTML = '<h3>Human Signal history · ' + repository + '</h3><p>No recorded Human Signals for this repository yet.</p>';
+      } else {
+        const cards = records.map(record => {
+          const date = record.timestamp ? new Date(record.timestamp).toLocaleString() : 'Unknown date';
+          const areas = Array.isArray(record.areas) && record.areas.length ? record.areas.join(', ') : 'No sensitive areas detected';
+          const reviewed = Array.isArray(record.reviewedAreas) && record.reviewedAreas.length ? record.reviewedAreas.join(', ') : 'None recorded';
+          return '<div class="history-card">' +
+            '<strong>' + escape(record.result || 'UNKNOWN') + '</strong>' +
+            '<div class="history-meta"><span>' + escape(date) + '</span><span>' + escape(record.recommendedCheck || '') + '</span><span>' + escape(record.attention || '') + '</span><span>' + escape(String(record.filesChanged ?? 0)) + ' files</span></div>' +
+            '<div><strong>Detected:</strong> ' + escape(areas) + '</div>' +
+            '<div><strong>Reviewed:</strong> ' + escape(reviewed) + '</div>' +
+            '<p class="history-explanation">' + escape(record.explanation || 'No explanation recorded.') + '</p>' +
+          '</div>';
+        }).join('');
+        box.innerHTML = '<h3>Human Signal history · ' + repository + '</h3><p class="muted">Showing the latest ' + records.length + ' recorded decision' + (records.length === 1 ? '' : 's') + ' for this Git repository.</p>' + cards;
+      }
+      box.style.display = 'block';
+      box.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   });
 </script>
