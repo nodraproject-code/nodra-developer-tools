@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { analyzeWorkspace } from './git';
+import { analyzeWorkspace, resolveRepositoryIdentity } from './git';
 import { openHumanSignalPanel } from './panel';
 
 export function activate(context: vscode.ExtensionContext): void {
@@ -11,8 +11,11 @@ export function activate(context: vscode.ExtensionContext): void {
     }
 
     try {
-      const summary = await analyzeWorkspace(folder.uri.fsPath);
-      openHumanSignalPanel(context, summary, folder.name);
+      const [summary, repository] = await Promise.all([
+        analyzeWorkspace(folder.uri.fsPath),
+        resolveRepositoryIdentity(folder.uri.fsPath, folder.name)
+      ]);
+      openHumanSignalPanel(context, summary, repository);
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
       void vscode.window.showErrorMessage(`NODRA Human Check could not read local Git changes: ${detail}`);
