@@ -2,7 +2,7 @@
   "name": "nodra-human-check",
   "displayName": "NODRA Human Check",
   "description": "Stay in the loop while AI codes with you. Understand local changes before accepting them.",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "publisher": "nodra-network",
   "license": "SEE LICENSE IN LICENSE",
   "pricing": "Free",
@@ -52,7 +52,7 @@
     "type": "git",
     "url": "https://github.com/nodraproject-code/nodra-developer-tools.git"
   },
-  "homepage": "https://github.com/nodraproject-code/nodra-developer-tools/tree/main/extensions/human-check",
+  "homepage": "https://nodranetwork.com",
   "bugs": {
     "url": "https://github.com/nodraproject-code/nodra-developer-tools/issues"
   }
