@@ -8,6 +8,8 @@ It does not replace Copilot, Claude, Gemini, Codex, or any other coding assistan
 
 > **Before accepting AI-generated changes, make sure you understand what changed.**
 
+Learn more about the company and the wider Human Signal project at [NODRA Network](https://nodranetwork.com).
+
 ## What it does
 
 Run **`NODRA: Human Check Workspace`** from the Command Palette or click the discreet `+NODRA Human Check` item in the status bar.
@@ -18,8 +20,18 @@ Human Check then:
 2. Summarizes changed files and added/removed lines.
 3. Flags path-based impact areas: API, authentication, data, dependencies, infrastructure, configuration, tests, and UI.
 4. Opens the **+NODRA Human Signal** panel.
-5. Asks you to explain what changed and complete an understanding checklist.
+5. Asks you to explain what changed and complete adaptive review-focus and understanding checks.
 6. Records one of three results locally: `UNDERSTOOD`, `NEEDS_REVIEW`, or `REVISIT`.
+7. Keeps recorded Human Signals in a history isolated to the current Git repository.
+8. Lets you export an optional local **NODRA Decision Record** in Markdown.
+
+## Human Signal history
+
+A Human Signal is stored only after you explicitly choose **Record Human Signal locally**. Draft explanations and unchecked sessions are not silently saved.
+
+History is separated per Git repository. NODRA derives a local repository fingerprint from the Git `origin` remote when available, or from the local Git root as a fallback. The remote URL itself is not displayed or sent to NODRA.
+
+Use **View history for this repository** inside Human Check to review recent decisions for the Git repository currently open. Records from other repositories are not mixed into that view.
 
 ## Human Signal questions
 
@@ -44,7 +56,7 @@ V0.1 intentionally includes:
 - **No external HTTP requests**
 - **No upload of source code, diffs, file contents, prompts, or workspace information**
 
-Git is executed locally. The Webview loads no remote content and uses a restrictive Content Security Policy. Human Signal history is stored with VS Code's local extension storage.
+Git is executed locally. The Webview loads no remote content and uses a restrictive Content Security Policy. Human Signal history is stored with VS Code's local extension storage and separated by a local repository fingerprint.
 
 ## Requirements
 
@@ -69,13 +81,13 @@ npm run check
 npx @vscode/vsce package
 ```
 
-This produces `nodra-human-check-0.1.0.vsix` in this directory. Install that VSIX in Visual Studio Code and validate the command, status-bar entry, local Git summary, Human Signal flow, and local-only privacy behavior before publishing.
+This produces a versioned `nodra-human-check-*.vsix` package in this directory. Install the VSIX in Visual Studio Code and validate the command, status-bar entry, local Git summary, Human Signal flow, repository-scoped history, Decision Record, and local-only privacy behavior before publishing.
 
 The Visual Studio Marketplace publisher **NODRA Network** is registered with the publisher identifier `nodra-network`, matching the `publisher` field in `package.json`.
 
 ## Independence
 
-NODRA Human Check is a NODRA Network project. It is not affiliated with, endorsed by, or sponsored by Microsoft or by any AI coding-assistant provider.
+NODRA Human Check is a [NODRA Network](https://nodranetwork.com) project. It is not affiliated with, endorsed by, or sponsored by Microsoft or by any AI coding-assistant provider.
 
 ## License
 
