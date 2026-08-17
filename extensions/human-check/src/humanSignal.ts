@@ -127,7 +127,7 @@ export function buildUnderstandingFeedback(
   const unmentionedAreas = summary.areas.filter((area) => !explanationMentionsArea(normalized, area));
   if (recommendCheck(summary) === 'DEEP' && normalized.length >= 30 && unmentionedAreas.length > 0) {
     const areas = unmentionedAreas.slice(0, 3).join(', ');
-    gaps.push(`Your explanation does not mention detected area${unmentionedAreas.length > 1 ? 's' : ''}: ${areas}. Consider whether ${unmentionedAreas.length > 1 ? 'they affect' : 'it affects'} your decision.`);
+    gaps.push(`Your explanation focuses on other parts of the change. NODRA also detected ${areas}. Consider whether ${unmentionedAreas.length > 1 ? 'these areas are' : 'this area is'} relevant to your decision.`);
   }
 
   if (reviewed.size > 0) evidence.push(`Review focus confirmed for: ${[...reviewed].join(', ')}.`);
@@ -199,5 +199,5 @@ export function buildDecisionRecordMarkdown(record: HumanSignalRecord): string {
     `## Supporting confirmations\n\n${evidence}\n\n` +
     `## Understanding checklist\n\n` +
     checklist.map(([label, value]) => `- [${value ? 'x' : ' '}] ${label}`).join('\n') +
-    `\n\n---\nBuilt by NODRA Network · Human Signal for the AI era · Grounded in NODRA Protocol principles.\n`;
+    `\n\n---\nBuilt by NODRA Network · Human Signal for the AI Era · Guided by NODRA Protocol.\n`;
 }
