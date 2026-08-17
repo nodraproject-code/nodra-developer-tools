@@ -243,6 +243,7 @@ function render(summary: ChangeSummary, repository: RepositoryIdentity, scriptNo
 <script nonce="${scriptNonce}">
   const vscode = acquireVsCodeApi();
   const ids = ['canDescribeChange','knowsArchitectureImpact','checkedSensitiveAreas','understandsWhyNeeded','understandsImpact'];
+  let historyOpen = false;
   const escape = (value) => String(value).replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
   document.getElementById('save').addEventListener('click', () => {
     const checklist = Object.fromEntries(ids.map(id => [id, document.getElementById(id).checked]));
@@ -253,6 +254,7 @@ function render(summary: ChangeSummary, repository: RepositoryIdentity, scriptNo
     vscode.postMessage({ type: 'exportDecisionRecord' });
   });
   document.getElementById('viewHistory').addEventListener('click', () => {
+    historyOpen = true;
     vscode.postMessage({ type: 'viewHistory' });
   });
   window.addEventListener('message', event => {
@@ -272,9 +274,13 @@ function render(summary: ChangeSummary, repository: RepositoryIdentity, scriptNo
         : '';
       box.innerHTML = gapHtml + evidenceHtml;
       box.style.display = 'block';
+      if (historyOpen) {
+        vscode.postMessage({ type: 'viewHistory' });
+      }
     }
 
     if (event.data?.type === 'history') {
+      historyOpen = true;
       const records = Array.isArray(event.data.records) ? event.data.records : [];
       const box = document.getElementById('history');
       const repository = escape(event.data.repository || 'current repository');
