@@ -57,6 +57,8 @@ export function openHumanSignalPanel(context: vscode.ExtensionContext, summary: 
     { enableScripts: true, retainContextWhenHidden: false }
   );
 
+  panel.iconPath = vscode.Uri.joinPath(context.extensionUri, 'media', 'icon.png');
+
   const scriptNonce = nonce();
   panel.webview.html = render(summary, repository, scriptNonce);
   let latestRecord: HumanSignalRecord | undefined;
