@@ -166,7 +166,8 @@ function render(summary: ChangeSummary, scriptNonce: string): string {
   #feedback { display:none; }
   #feedback h3 { margin: 8px 0; font-size:14px; }
   #feedback ul { margin-top:4px; }
-  footer { margin: 28px 0 4px; padding-top: 14px; border-top: 1px solid var(--vscode-panel-border); color: var(--vscode-descriptionForeground); font-size: 11px; text-align:center; }
+  footer { margin: 32px 0 6px; padding-top: 16px; border-top: 1px solid var(--vscode-panel-border); color: var(--vscode-descriptionForeground); font-size: 12px; line-height: 1.45; text-align:center; }
+  footer strong { color: var(--vscode-foreground); font-weight: 600; }
 </style>
 </head>
 <body>
@@ -211,7 +212,7 @@ function render(summary: ChangeSummary, scriptNonce: string): string {
   <div id="result" role="status"></div>
   <div id="feedback" class="feedback" role="status"></div>
 
-  <footer>Built by NODRA Network · Human Signal for the AI era · Grounded in NODRA Protocol principles</footer>
+  <footer><strong>Built by NODRA Network</strong> · Human Signal for the AI Era · Guided by NODRA Protocol</footer>
 <script nonce="${scriptNonce}">
   const vscode = acquireVsCodeApi();
   const ids = ['canDescribeChange','knowsArchitectureImpact','checkedSensitiveAreas','understandsWhyNeeded','understandsImpact'];
