@@ -42,7 +42,7 @@ jobs:
       - name: Upload VSIX artifact
         uses: actions/upload-artifact@v4
         with:
-          name: nodra-human-check-0.1.10-vsix
+          name: nodra-human-check-0.1.11-vsix
           path: extensions/human-check/*.vsix
           if-no-files-found: error
           retention-days: 14
