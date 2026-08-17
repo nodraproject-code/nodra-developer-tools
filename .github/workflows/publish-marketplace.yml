@@ -1,0 +1,43 @@
+name: Publish Human Check to VS Code Marketplace
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-marketplace.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: extensions/human-check
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Compile and test
+        run: npm run check
+
+      - name: Publish to Visual Studio Marketplace
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          if [ -z "$VSCE_PAT" ]; then
+            echo "Missing GitHub Actions secret: VSCE_PAT"
+            exit 1
+          fi
+          npx @vscode/vsce publish -p "$VSCE_PAT"
