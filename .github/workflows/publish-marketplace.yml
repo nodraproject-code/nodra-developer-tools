@@ -41,3 +41,5 @@ jobs:
             exit 1
           fi
           npx @vscode/vsce publish -p "$VSCE_PAT"
+
+# Publication workflow is intentionally manual/restricted to this file after initial release.
