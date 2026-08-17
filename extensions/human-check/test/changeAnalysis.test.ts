@@ -142,5 +142,5 @@ test('Decision Record uses additional context for understood decisions and carri
   assert.match(markdown, /Supporting confirmations/);
   assert.match(markdown, /without including source code or diffs/);
   assert.match(markdown, /NODRA Network/);
-  assert.match(markdown, /NODRA Protocol principles/);
+  assert.match(markdown, /Guided by NODRA Protocol/);
 });
