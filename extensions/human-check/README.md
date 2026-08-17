@@ -10,6 +10,8 @@ It does not replace Copilot, Claude, Gemini, Codex, or any other coding assistan
 
 Learn more about the company and the wider Human Signal project at [NODRA Network](https://nodranetwork.com).
 
+The extension uses NODRA Network's visual identity in its Marketplace and VS Code icon.
+
 ## What it does
 
 Run **`NODRA: Human Check Workspace`** from the Command Palette or click the discreet `+NODRA Human Check` item in the status bar.
