@@ -24,6 +24,14 @@ function repositoryKey(value: string): string {
   return createHash('sha256').update(value.trim()).digest('hex').slice(0, 24);
 }
 
+export async function isGitWorkspace(cwd: string): Promise<boolean> {
+  try {
+    return (await git(cwd, ['rev-parse', '--is-inside-work-tree'])).trim() === 'true';
+  } catch {
+    return false;
+  }
+}
+
 export async function resolveRepositoryIdentity(cwd: string, workspaceName: string): Promise<RepositoryIdentity> {
   const root = (await git(cwd, ['rev-parse', '--show-toplevel'])).trim();
   let source = root;
@@ -37,13 +45,11 @@ export async function resolveRepositoryIdentity(cwd: string, workspaceName: stri
 
   return {
     key: repositoryKey(source),
-    label: workspaceName
+    label: `${workspaceName} · Git mode`
   };
 }
 
 export async function analyzeWorkspace(cwd: string): Promise<ChangeSummary> {
-  await git(cwd, ['rev-parse', '--is-inside-work-tree']);
-
   const [numstat, status] = await Promise.all([
     git(cwd, ['diff', '--numstat', 'HEAD', '--']),
     git(cwd, ['status', '--porcelain=v1', '--untracked-files=all'])
